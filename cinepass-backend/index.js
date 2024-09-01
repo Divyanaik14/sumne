@@ -1,32 +1,37 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
-const cors = require('cors');
 const bcrypt = require('bcrypt');
 const dotenv = require('dotenv');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const cors = require('cors');
+const path = require('path');
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 5500;
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+// Middleware to parse JSON and URL-encoded data
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
+// CORS configuration
 app.use(cors({
-  origin: 'http://127.0.0.1:5500', // adjust if your client is served from a different origin
+  origin: 'http://127.0.0.1:5500', // Adjust if your client is served from a different origin
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   credentials: true,
 }));
 
+// Serve static files from the "public" directory
 app.use(express.static('public'));
 
+// MongoDB connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('Failed to connect to MongoDB', err));
 
+// Define User schema and model
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true },
   email: { type: String, required: true, unique: true },
@@ -36,6 +41,7 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
+// Define Verification Code schema and model
 const verificationCodeSchema = new mongoose.Schema({
   email: { type: String, required: true },
   code: { type: String, required: true },
@@ -44,6 +50,7 @@ const verificationCodeSchema = new mongoose.Schema({
 
 const VerificationCode = mongoose.model('VerificationCode', verificationCodeSchema);
 
+// Nodemailer setup for sending verification emails
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
@@ -52,6 +59,7 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+// Function to send a verification email
 const sendVerificationEmail = async (email, code) => {
   const mailOptions = {
     from: process.env.EMAIL_USER,
@@ -63,6 +71,7 @@ const sendVerificationEmail = async (email, code) => {
   await transporter.sendMail(mailOptions);
 };
 
+// Signup endpoint
 app.post('/signup', async (req, res) => {
   const { username, email, password } = req.body;
   try {
@@ -84,10 +93,11 @@ app.post('/signup', async (req, res) => {
     res.status(201).json({ message: 'User created successfully, verification code sent to email' });
   } catch (error) {
     console.error('Error creating user:', error);
-    res.status(500).json({ message: 'Error creating user', error });
+    res.status(500).json({ message: 'Error creating user' });
   }
 });
 
+// Email verification endpoint
 app.post('/verify', async (req, res) => {
   const { email, code } = req.body;
   try {
@@ -105,10 +115,11 @@ app.post('/verify', async (req, res) => {
     res.status(200).json({ message: 'Verification successful' });
   } catch (error) {
     console.error('Error verifying user:', error);
-    res.status(500).json({ message: 'Error verifying user', error });
+    res.status(500).json({ message: 'Error verifying user' });
   }
 });
 
+// Signin endpoint
 app.post('/signin', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -125,18 +136,17 @@ app.post('/signin', async (req, res) => {
       res.status(400).json({ message: 'Invalid email or password' });
     }
   } catch (error) {
-    res.status(500).json({ message: 'Error signing in', error });
+    console.error('Error signing in:', error);
+    res.status(500).json({ message: 'Error signing in' });
   }
 });
 
-app.get('/', (req, res) => {
-  res.send('Welcome to the API');
-});
-
+// Serve the index.html file from the "public" directory
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));  // Adjust path as necessary
 });
 
+// Start the server
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}/`);
 });
